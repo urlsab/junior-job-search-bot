@@ -3,6 +3,7 @@ const cheerio = require('cheerio');
 const cron = require('node-cron');
 const fs = require('fs').promises;
 const path = require('path');
+const nodemailer = require('nodemailer');
 
 class JobSearchBot {
     constructor() {
@@ -14,6 +15,15 @@ class JobSearchBot {
         this.keywords = ['junior', 'full stack', 'frontend', 'react', 'nodejs'];
         this.sentJobsFile = path.join(__dirname, 'sent_jobs.json');
         this.sentJobs = new Set();
+        
+        // Email transporter configuration
+        this.transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.GMAIL_USER,
+                pass: process.env.GMAIL_APP_PASSWORD
+            }
+        });
     }
 
     async initializeSentJobs() {
@@ -67,26 +77,37 @@ class JobSearchBot {
         );
     }
 
-    async sendJobsToTelegram(jobs) {
-        const telegramBotToken = 'YOUR_TELEGRAM_BOT_TOKEN';
-        const chatId = 'YOUR_CHAT_ID';
+    async sendJobsToEmail(jobs) {
+        const recipientEmail = process.env.RECIPIENT_EMAIL || process.env.GMAIL_USER;
 
-        for (const job of jobs) {
-            const message = `
-📝 New Junior Job Opportunity! 📝
-🔹 Title: ${job.title}
-🔗 Link: ${job.link}
-📄 Description: ${job.description.substring(0, 200)}...
-            `;
+        // Create email HTML
+        const jobsHTML = jobs.map(job => `
+            <div style="margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+                <h3>${job.title}</h3>
+                <p><strong>Link:</strong> <a href="${job.link}">${job.link}</a></p>
+                <p><strong>Description:</strong> ${job.description.substring(0, 300)}...</p>
+            </div>
+        `).join('');
 
-            try {
-                await axios.post(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
-                    chat_id: chatId,
-                    text: message
-                });
-            } catch (error) {
-                console.error('Error sending Telegram message:', error);
-            }
+        const mailOptions = {
+            from: process.env.GMAIL_USER,
+            to: recipientEmail,
+            subject: `New Junior Job Opportunities - ${new Date().toLocaleDateString()}`,
+            html: `
+                <html>
+                    <body>
+                        <h1>Daily Job Search Results</h1>
+                        ${jobsHTML}
+                    </body>
+                </html>
+            `
+        };
+
+        try {
+            await this.transporter.sendMail(mailOptions);
+            console.log('Email sent successfully');
+        } catch (error) {
+            console.error('Error sending email:', error);
         }
     }
 
@@ -96,14 +117,14 @@ class JobSearchBot {
         const newJobs = await this.scrapeJobSites();
         
         if (newJobs.length > 0) {
-            await this.sendJobsToTelegram(newJobs);
+            await this.sendJobsToEmail(newJobs);
             await this.saveSentJobs();
         }
     }
 
     startScheduler() {
         // Run every day at 9:00 AM
-        cron.schedule('0 12 3 * *', async () => {
+        cron.schedule('0 13 20 * *', async () => {
             console.log('Daily job search started...');
             await this.runDailyJobSearch();
         });
