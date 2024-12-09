@@ -1,0 +1,9 @@
+version: '3'
+services:
+  job-search-bot:
+    build: .
+    restart: always
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
