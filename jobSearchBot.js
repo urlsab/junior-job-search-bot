@@ -5,8 +5,6 @@ const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const puppeteer = require('puppeteer');
 
-
-
 // cpc2aMY2JlajEZFb - mongo db jobsbot cluster password
 // mongo project name - jobs-bot
 // mongodb coluster name - jobsBot

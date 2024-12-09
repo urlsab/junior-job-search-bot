@@ -7,7 +7,7 @@ services:
     depends_on:
       - mongodb
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/job_search_db
+      - MONGODB_URI=${MONGODB_URI}
       - GMAIL_USER=${GMAIL_USER}
       - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
       - RECIPIENT_EMAIL=${RECIPIENT_EMAIL}
