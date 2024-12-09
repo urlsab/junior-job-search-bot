@@ -4,14 +4,17 @@
     "description": "Automated job search bot for junior developers",
     "main": "jobSearchBot.js",
     "scripts": {
-        "start": "node jobSearchBot.js"
+        "start": "node jobSearchBot.js",
+        "dev": "nodemon jobSearchBot.js"
     },
     "dependencies": {
         "axios": "^1.6.0",
         "cheerio": "^1.0.0",
-        "node-cron": "^3.0.2",
+        "mongoose": "^8.8.4",
+        "node-cron": "^3.0.3",
         "nodemailer": "^6.9.16",
-        "path": "^0.12.7"
+        "path": "^0.12.7",
+        "puppeteer": "^23.10.1"
     },
     "devDependencies": {
         "dotenv": "^16.4.7",

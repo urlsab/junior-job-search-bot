@@ -1,9 +1,28 @@
-version: '3'
+version: '3.8'
 services:
   job-search-bot:
     build: .
+    container_name: job-search-bot
     restart: always
+    depends_on:
+      - mongodb
     environment:
-      - NODE_ENV=production
-    env_file:
-      - .env
+      - MONGODB_URI=mongodb://mongodb:27017/job_search_db
+      - GMAIL_USER=${GMAIL_USER}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+      - RECIPIENT_EMAIL=${RECIPIENT_EMAIL}
+    volumes:
+      - ./:/app
+      - /app/node_modules
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
