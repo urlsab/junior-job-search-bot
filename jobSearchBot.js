@@ -162,7 +162,7 @@ class JobSearchBot {
 
     startScheduler() {
         // Run daily at 9 AM
-        cron.schedule('0 14 7 * *', async () => {
+        cron.schedule('0 20 54 * *', async () => {
             console.log('Starting daily job search...');
             const newJobs = await this.findNewJobs();
             await this.sendJobsEmail(newJobs);
