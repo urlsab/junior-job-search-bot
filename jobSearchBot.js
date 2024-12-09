@@ -10,7 +10,7 @@ const puppeteer = require('puppeteer');
 // cpc2aMY2JlajEZFb - mongo db jobsbot cluster password
 // mongo project name - jobs-bot
 // mongodb coluster name - jobsBot
-// mongodb collection - jobs-bot
+// mongodb collection name - jobs-bot
 // mongodb database name - roles
 
 // MongoDB Job Model
