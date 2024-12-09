@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const puppeteer = require('puppeteer');
+require('dotenv').config();
 
 // cpc2aMY2JlajEZFb - mongo db jobsbot cluster password
 // mongo project name - jobs-bot
