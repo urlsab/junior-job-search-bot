@@ -67,32 +67,34 @@ class JobSearchBot {
         }
     }
 
-    async scrapeJobsWithPuppeteer(url) {
-        const browser = await puppeteer.launch({
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+    
+
+    // async scrapeJobsWithPuppeteer(url) {
+    //     const browser = await puppeteer.launch({
+    //         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    //         args: ['--no-sandbox', '--disable-setuid-sandbox']
+    //     });
         
-        const page = await browser.newPage();
-        await page.goto(url, { waitUntil: 'networkidle2' });
+    //     const page = await browser.newPage();
+    //     await page.goto(url, { waitUntil: 'networkidle2' });
 
-        const jobs = await page.evaluate((keywords) => {
-            const jobElements = document.querySelectorAll('.job-listing');
-            return Array.from(jobElements).map(el => ({
-                title: el.querySelector('.job-title')?.innerText,
-                link: el.querySelector('a')?.href,
-                description: el.querySelector('.job-description')?.innerText
-            })).filter(job => 
-                keywords.some(keyword => 
-                    job.title.toLowerCase().includes(keyword) || 
-                    job.description.toLowerCase().includes(keyword)
-                )
-            );
-        }, this.keywords);
+    //     const jobs = await page.evaluate((keywords) => {
+    //         const jobElements = document.querySelectorAll('.job-listing');
+    //         return Array.from(jobElements).map(el => ({
+    //             title: el.querySelector('.job-title')?.innerText,
+    //             link: el.querySelector('a')?.href,
+    //             description: el.querySelector('.job-description')?.innerText
+    //         })).filter(job => 
+    //             keywords.some(keyword => 
+    //                 job.title.toLowerCase().includes(keyword) || 
+    //                 job.description.toLowerCase().includes(keyword)
+    //             )
+    //         );
+    //     }, this.keywords);
 
-        await browser.close();
-        return jobs;
-    }
+    //     await browser.close();
+    //     return jobs;
+    // }
 
     async findNewJobs() {
         const newJobs = [];
@@ -162,36 +164,39 @@ class JobSearchBot {
 
     startScheduler() {
         // Run daily at 9 AM
-        cron.schedule('0 20 54 * *', async () => {
-            console.log('Starting daily job search...');
-            const newJobs = await this.findNewJobs();
-            await this.sendJobsEmail(newJobs);
-        });
+        // cron.schedule('55 21 * * *', async () => {
+        //     console.log('Starting daily job search...');
+
+            const options = {
+                method: 'GET',
+                url: 'https://jobs-api14.p.rapidapi.com/v2/list',
+                params: {
+                  query: 'Front End Developer',
+                  location: 'Israel',
+                  autoTranslateLocation: 'false',
+                  remoteOnly: 'false',
+                  employmentTypes: 'fulltime;parttime;intern;contractor'
+                },
+                headers: {
+                  'x-rapidapi-key': 'd37312a5efmsh99c6bb485cfff56p173ce8jsn17cbf1cbd077',
+                  'x-rapidapi-host': 'jobs-api14.p.rapidapi.com'
+                }
+              };
+              
+              try {
+                  const response = axios.request(options);
+                  console.log(response.data);
+              } catch (error) {
+                  console.error(error);
+              }
+
+        //     const newJobs = await this.findNewJobs();
+        //     await this.sendJobsEmail(newJobs);
+        // });
     }
 }
 
-const options = {
-    method: 'GET',
-    url: 'https://jobs-api14.p.rapidapi.com/v2/list',
-    params: {
-      query: 'Front End Developer',
-      location: 'Israel',
-      autoTranslateLocation: 'false',
-      remoteOnly: 'false',
-      employmentTypes: 'fulltime;parttime;intern;contractor'
-    },
-    headers: {
-      'x-rapidapi-key': 'd37312a5efmsh99c6bb485cfff56p173ce8jsn17cbf1cbd077',
-      'x-rapidapi-host': 'jobs-api14.p.rapidapi.com'
-    }
-  };
-  
-  try {
-      const response = axios.request(options);
-      console.log(response.data);
-  } catch (error) {
-      console.error(error);
-  }
+
 
 // Initialize and start the bot
 const jobSearchBot = new JobSearchBot();
