@@ -5,6 +5,10 @@ const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const puppeteer = require('puppeteer');
 
+
+
+// cpc2aMY2JlajEZFb - mongo db jobsbot cluster password
+
 // MongoDB Job Model
 const JobSchema = new mongoose.Schema({
     title: String,
@@ -47,11 +51,15 @@ class JobSearchBot {
         ];
     }
 
+    
+
+    
+
     async connectToMongoDB() {
         try {
             await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/job_search_db', {
-                useNewUrlParser: true,
-                useUnifiedTopology: true
+                // useNewUrlParser: true,
+                // useUnifiedTopology: true
             });
             console.log('Connected to MongoDB successfully');
         } catch (error) {
@@ -114,6 +122,8 @@ class JobSearchBot {
         return newJobs.slice(0, 10);
     }
 
+    
+
     async sendJobsEmail(jobs) {
         if (jobs.length === 0) return;
 
@@ -148,6 +158,8 @@ class JobSearchBot {
         }
     }
 
+    
+
     startScheduler() {
         // Run daily at 9 AM
         cron.schedule('0 14 7 * *', async () => {
@@ -157,6 +169,29 @@ class JobSearchBot {
         });
     }
 }
+
+const options = {
+    method: 'GET',
+    url: 'https://jobs-api14.p.rapidapi.com/v2/list',
+    params: {
+      query: 'Front End Developer',
+      location: 'Israel',
+      autoTranslateLocation: 'false',
+      remoteOnly: 'false',
+      employmentTypes: 'fulltime;parttime;intern;contractor'
+    },
+    headers: {
+      'x-rapidapi-key': 'd37312a5efmsh99c6bb485cfff56p173ce8jsn17cbf1cbd077',
+      'x-rapidapi-host': 'jobs-api14.p.rapidapi.com'
+    }
+  };
+  
+  try {
+      const response = axios.request(options);
+      console.log(response.data);
+  } catch (error) {
+      console.error(error);
+  }
 
 // Initialize and start the bot
 const jobSearchBot = new JobSearchBot();
