@@ -1,23 +1,16 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
-const cron = require('node-cron');
-const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer');
+const cron = require('node-cron');
 require('dotenv').config();
-
-// cpc2aMY2JlajEZFb - mongo db jobsbot cluster password
-// mongo project name - jobs-bot
-// mongodb coluster name - jobsBot
-// mongodb collection name - jobs-bot
-// mongodb database name - roles
 
 // MongoDB Job Model
 const JobSchema = new mongoose.Schema({
-    title: String,
+    title: { type: String, required: true },
     link: { type: String, unique: true },
     description: String,
-    source: String,
+    source: { type: String, default: 'RapidAPI' },
+    location: String,
+    employmentType: String,
     createdAt: { type: Date, default: Date.now },
     sentAt: Date
 });
@@ -28,22 +21,7 @@ class JobSearchBot {
         // MongoDB Connection
         this.connectToMongoDB();
 
-        // Email transporter
-        this.transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.GMAIL_USER,
-                pass: process.env.GMAIL_APP_PASSWORD
-            }
-        });
-
         // Job search configuration
-        this.searchSites = [
-            'https://www.linkedin.com/jobs',
-            'https://www.indeed.com/jobs',
-            'https://www.glassdoor.com/Job'
-        ];
-
         this.keywords = [
             'junior developer', 
             'entry level', 
@@ -52,17 +30,31 @@ class JobSearchBot {
             'react', 
             'nodejs'
         ];
+
+        // RapidAPI configuration
+        this.rapidApiOptions = {
+            method: 'GET',
+            url: 'https://jobs-api14.p.rapidapi.com/v2/list',
+            params: {
+                query: 'Front End Developer',
+                location: 'Israel',
+                autoTranslateLocation: 'false',
+                remoteOnly: 'false',
+                employmentTypes: 'fulltime;parttime;intern;contractor'
+            },
+            headers: {
+                'x-rapidapi-key': process.env.RAPID_API_KEY,
+                'x-rapidapi-host': 'jobs-api14.p.rapidapi.com'
+            }
+        };
     }
-
-    
-
-    
 
     async connectToMongoDB() {
         try {
-            await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/job_search_db', {
+            await mongoose.connect(process.env.MONGODB_URI, {
                 // useNewUrlParser: true,
-                // useUnifiedTopology: true
+                // useUnifiedTopology: true,
+                // useCreateIndex: true
             });
             console.log('Connected to MongoDB successfully');
         } catch (error) {
@@ -70,173 +62,68 @@ class JobSearchBot {
         }
     }
 
-    
+    async fetchAndSaveJobs() {
+        try {
+            // Fetch jobs from RapidAPI
+            const response = await axios.request(this.rapidApiOptions);
+            const jobs = response.data.jobs || [];
 
-    // async scrapeJobsWithPuppeteer(url) {
-    //     const browser = await puppeteer.launch({
-    //         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-    //         args: ['--no-sandbox', '--disable-setuid-sandbox']
-    //     });
-        
-    //     const page = await browser.newPage();
-    //     await page.goto(url, { waitUntil: 'networkidle2' });
+            // Filter jobs based on keywords
+            const filteredJobs = jobs.filter(job => 
+                this.keywords.some(keyword => 
+                    job.title.toLowerCase().includes(keyword) || 
+                    job.description.toLowerCase().includes(keyword)
+                )
+            );
 
-    //     const jobs = await page.evaluate((keywords) => {
-    //         const jobElements = document.querySelectorAll('.job-listing');
-    //         return Array.from(jobElements).map(el => ({
-    //             title: el.querySelector('.job-title')?.innerText,
-    //             link: el.querySelector('a')?.href,
-    //             description: el.querySelector('.job-description')?.innerText
-    //         })).filter(job => 
-    //             keywords.some(keyword => 
-    //                 job.title.toLowerCase().includes(keyword) || 
-    //                 job.description.toLowerCase().includes(keyword)
-    //             )
-    //         );
-    //     }, this.keywords);
-
-    //     await browser.close();
-    //     return jobs;
-    // }
-
-    async findNewJobs() {
-        const newJobs = [];
-
-        for (const site of this.searchSites) {
-            try {
-                const siteJobs = await this.scrapeJobsWithPuppeteer(site);
-                
-                for (const jobData of siteJobs) {
-                    // Check if job already exists in DB
+            // Prepare and save jobs to MongoDB
+            const savedJobs = [];
+            for (const jobData of filteredJobs) {
+                try {
+                    // Check if job already exists to prevent duplicates
                     const existingJob = await Job.findOne({ link: jobData.link });
                     
                     if (!existingJob) {
                         const job = new Job({
-                            ...jobData,
-                            source: new URL(site).hostname
+                            title: jobData.title,
+                            link: jobData.link,
+                            description: jobData.description,
+                            location: jobData.location,
+                            employmentType: jobData.employmentType
                         });
+
                         await job.save();
-                        newJobs.push(job);
+                        savedJobs.push(job);
                     }
+                } catch (saveError) {
+                    console.error('Error saving individual job:', saveError);
                 }
-            } catch (error) {
-                console.error(`Error scraping ${site}:`, error);
             }
-        }
 
-        return newJobs.slice(0, 10);
-    }
-
-    
-
-    async sendJobsEmail(jobs) {
-        if (jobs.length === 0) return;
-
-        const jobsHTML = jobs.map(job => `
-            <div style="margin-bottom: 15px; border-bottom: 1px solid #ddd;">
-                <h3>${job.title}</h3>
-                <p><strong>Source:</strong> ${job.source}</p>
-                <p><strong>Link:</strong> <a href="${job.link}">${job.link}</a></p>
-                <p>${job.description.substring(0, 200)}...</p>
-            </div>
-        `).join('');
-
-        const mailOptions = {
-            from: process.env.GMAIL_USER,
-            to: process.env.RECIPIENT_EMAIL,
-            subject: `New Junior Developer Jobs - ${new Date().toLocaleDateString()}`,
-            html: `
-                <html>
-                    <body>
-                        <h1>Daily Job Search Results</h1>
-                        ${jobsHTML}
-                    </body>
-                </html>
-            `
-        };
-
-        try {
-            await this.transporter.sendMail(mailOptions);
-            console.log('Job notification email sent successfully');
+            console.log(`Saved ${savedJobs.length} new jobs to MongoDB`);
+            return savedJobs;
         } catch (error) {
-            console.error('Email sending error:', error);
+            console.error('Error fetching jobs from RapidAPI:', error);
+            return [];
         }
     }
-
-    
 
     startScheduler() {
         // Run daily at 9 AM
-        // cron.schedule('55 21 * * *', async () => {
-        //     console.log('Starting daily job search...');
+        cron.schedule('* * * * *', async () => {
+            console.log('Starting daily job search...');
+            await this.fetchAndSaveJobs();
+        });
+    }
 
-            const options = {
-                method: 'GET',
-                url: 'https://jobs-api14.p.rapidapi.com/v2/list',
-                params: {
-                  query: 'Front End Developer',
-                  location: 'Israel',
-                  autoTranslateLocation: 'false',
-                  remoteOnly: 'false',
-                  employmentTypes: 'fulltime;parttime;intern;contractor'
-                },
-                headers: {
-                  'x-rapidapi-key': 'd37312a5efmsh99c6bb485cfff56p173ce8jsn17cbf1cbd077',
-                  'x-rapidapi-host': 'jobs-api14.p.rapidapi.com'
-                }
-              };
-              
-              try {
-                  const response = axios.request(options);
-                  console.log(response.data);
-              } catch (error) {
-                  console.error(error);
-              }
-
-        //     const newJobs = await this.findNewJobs();
-        //     await this.sendJobsEmail(newJobs);
-        // });
+    // Manual trigger method
+    async runJobSearch() {
+        return await this.fetchAndSaveJobs();
     }
 }
-
-
 
 // Initialize and start the bot
 const jobSearchBot = new JobSearchBot();
 jobSearchBot.startScheduler();
 
 module.exports = jobSearchBot;
-
-/**
- 
-Docker Deployment Steps:
-```bash
-# Build and run the containers
-docker-compose up --build
-
-# Run in background
-docker-compose up -d
-
-# Stop containers
-docker-compose down
-
-# View logs
-docker-compose logs job-search-bot
-```
-
-Key Improvements:
-- Added MongoDB for job tracking
-- Used Puppeteer for more robust web scraping
-- Containerized application
-- Added error handling
-- Persistent job storage
-- Automated daily job search and email
-
-Recommended Next Steps:
-1. Configure your Gmail App Password
-2. Adjust job search keywords
-3. Customize scraping selectors
-4. Set up additional error logging
-
-Would you like me to elaborate on any part of the implementation?
- */
